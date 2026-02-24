@@ -16,6 +16,11 @@ class LegController(gym.Env):
         self._angle_weight = 9000
         self._distance_weight = 90000
 
+        self.noise = False
+        self.std_noise = 0.16
+        self.motor_model = False
+        self.friction = False
+
         self.robo = hexa.Hexa()
         self.reward = 0.0
         self.action = np.zeros(18)
@@ -49,6 +54,15 @@ class LegController(gym.Env):
         self.action = np.zeros(18)
         self.obs = np.zeros(20)
         self.robo.reset()
+
+        if self.friction is True:
+            friction = np.random.rand() * 0.5 + 0.5
+            self.robo.model.geom_friction[0][0] = friction
+
+        if self.motor_model is True:
+            kp = np.random.rand()*2+0.1
+            kd = kp/10 + np.random.rand()*0.1
+            self.robo.pd = [hexa.PDController(kp=kp, kd=kd) for _ in range(18)]
 
         # block random init
         self.robo.model.body_pos[-1][0] = np.random.uniform(-0.5, 0.5)
@@ -87,12 +101,18 @@ class LegController(gym.Env):
             state.append(x)
         for i in range(2):
             state.append(euler[i])
+
+        state = np.array(state, dtype=np.float32)
+
+        if self.noise is True:
+            state = self.add_noise(state)
+
         return np.array(state, dtype=np.float32)
 
     def _get_rew(self):
         reward_angle = self.angle - self.robo.get_rotate_angle
         rewards = reward_angle * self._angle_weight
-        reward_distance =  self.robo.get_pos[1] - self.pos[1]
+        reward_distance = self.robo.get_pos[1] - self.pos[1]
         rewards += reward_distance * self._distance_weight
         costs = self.control_cost()
         reward = rewards - costs
@@ -132,3 +152,10 @@ class LegController(gym.Env):
             stop = True
 
         return obs, reward, stop, success_goal, reward_info
+
+    def add_noise(self, obs):
+        noise = np.random.normal(0, self.std_noise, 20)
+        noise[-1] = noise[-1] / math.pi * 6 * 90
+        noise[-2] = noise[-2] / math.pi * 6 * 90
+        obs += noise
+        return obs
