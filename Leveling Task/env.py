@@ -13,6 +13,11 @@ class LegController(gym.Env):
         self._ctrl_cost_weight = 600
         self._goal_weight = 9000
 
+        self.noise = False
+        self.std_noise = 0.06
+        self.motor_model = False
+        self.friction = False
+
         self.robo = hexa.Hexa()
         self.reward = 0.0
         self.action = np.zeros(18)
@@ -47,6 +52,15 @@ class LegController(gym.Env):
         self.obs = np.zeros(20)
         self.robo.reset()
 
+        if self.friction is True:
+            friction = np.random.rand() * 0.5 + 0.5
+            self.robo.model.geom_friction[0][0] = friction
+
+        if self.motor_model is True:
+            kp = np.random.rand()*2+0.1
+            kd = kp/10 + np.random.rand()*0.1
+            self.robo.pd = [hexa.PDController(kp=kp, kd=kd) for _ in range(18)]
+
         # random init of slope
         angle = np.random.uniform(-math.pi / 12, math.pi / 12)
         while abs(angle) < math.radians(5):
@@ -65,7 +79,7 @@ class LegController(gym.Env):
         self.obs = self._get_obs()
         self.angle = self.robo.get_rotate_angle
 
-        return self._get_obs(), {}
+        return self.obs, {}
 
     def _get_obs(self):
         euler = self.robo.get_euler
@@ -76,6 +90,12 @@ class LegController(gym.Env):
             state.append(x)
         for i in range(2):
             state.append(euler[i])
+
+        state = np.array(state, dtype=np.float32)
+
+        if self.noise is True:
+            state = self.add_noise(state)
+
         return np.array(state, dtype=np.float32)
 
     def _get_rew(self):
@@ -115,4 +135,12 @@ class LegController(gym.Env):
             stop = True
 
 
+
         return obs, reward, stop, success_goal, reward_info
+
+    def add_noise(self, obs):
+        noise = np.random.normal(0, self.std_noise, 20)
+        noise[-1] = noise[-1] / math.pi * 6 * 90
+        noise[-2] = noise[-2] / math.pi * 6 * 90
+        obs += noise
+        return obs
