@@ -1,0 +1,19 @@
+# Environment Hyperparameters
+forward:
+  ctrl_cost_weight: 600
+  angle_weight: 9000
+  distance_weight: 90000
+  noise: false
+  std_noise: 0.05
+  mass: false
+  friction: false
+  motor_model: false
+
+balance:
+  ctrl_cost_weight: 500
+  goal_weight: 12000
+  noise: true
+  std_noise: 0.05
+  mass: false
+  friction: false
+  motor_model: false
